@@ -1,4 +1,5 @@
-import { useState } from 'preact/hooks';
+import { Capacitor } from '@capacitor/core';
+import { useEffect, useState } from 'preact/hooks';
 import { act, useData, wipeAll } from '../../store/store';
 import * as calc from '../../domain/calc';
 import * as ops from '../../domain/ops';
@@ -7,14 +8,16 @@ import { parseMoney } from '../../domain/money';
 import { money } from '../format';
 import { Icon } from '../icons';
 import { Card, confirmDialog, Field, MoneyInput, moneyStr, PageHeader, toast } from '../components/kit';
-import { checkReminders, notifSupported, requestNotifications } from '../../notifications';
+import { checkReminders, currentNotificationPermission, notifSupported, requestNotifications, syncNativeReminders } from '../../notifications';
 
 export function Settings() {
   const d = useData();
   const s = d.settings;
   const [v, setV] = useState({ name: s.name || '', salary: moneyStr(s.salary), payday: String(s.payday), vaMonthly: moneyStr(s.vaMonthly), vaDay: String(s.vaDay), vaAlert: String(s.vaAlertPercent), notifyDays: String(s.notifyDaysBefore) });
   const [bank, setBank] = useState('');
-  const [perm, setPerm] = useState(notifSupported() ? Notification.permission : 'unsupported');
+  const native = Capacitor.isNativePlatform();
+  const [perm, setPerm] = useState<NotificationPermission | 'unsupported'>(notifSupported() && !native ? Notification.permission : native ? 'default' : 'unsupported');
+  useEffect(() => { void currentNotificationPermission().then(setPerm); }, []);
   const f = (k: keyof typeof v) => (e: Event) => setV({ ...v, [k]: (e.target as HTMLInputElement).value });
   const toggle = (k: 'vaCarryOver' | 'salaryAuto' | 'privacy') => act((x) => ops.updateSettings(x, { [k]: !x.settings[k] }));
   const save = (e: Event) => {
@@ -29,7 +32,11 @@ export function Settings() {
     if (s.notifications) { act((x) => ops.updateSettings(x, { notifications: false })); return; }
     const p = await requestNotifications();
     setPerm(p);
-    if (p === 'granted') { act((x) => ops.updateSettings(x, { notifications: true })); const n = await checkReminders(); toast(n ? `${n} lembrete(s) enviados` : 'Lembretes ativados'); }
+    if (p === 'granted') {
+      act((x) => ops.updateSettings(x, { notifications: true }));
+      if (native) { const n = await syncNativeReminders(); toast(n ? `${n} lembrete(s) agendado(s)` : 'Lembretes ativados'); }
+      else { const n = await checkReminders(); toast(n ? `${n} lembrete(s) enviados` : 'Lembretes ativados'); }
+    }
     else toast(p === 'unsupported' ? 'Este navegador não suporta notificações' : 'Permissão negada. Os lembretes continuam dentro do app.', 'err');
   };
   const calcBal = calc.accountBalance(d);
@@ -70,8 +77,10 @@ export function Settings() {
           <div class="stack">
             <Field label="Avisar quantos dias antes do vencimento"><input name="dias-antes" type="number" min={0} max={15} inputMode="numeric" value={v.notifyDays} onInput={f('notifyDays')} /></Field>
             <button class={`btn ${s.notifications ? 'soft' : 'primary'} block`} type="button" onClick={enableNotif}><Icon name="bell" size={18} /> {s.notifications ? 'Desativar notificações' : 'Ativar notificações do sistema'}</button>
-            <p class="muted small">Permissão: {perm === 'granted' ? 'concedida' : perm === 'denied' ? 'negada (mude nas configurações do navegador)' : perm === 'unsupported' ? 'não suportada neste navegador' : 'ainda não pedida'}.</p>
-            <p class="note"><Icon name="info" size={16} /> O app verifica as contas quando é aberto e a cada 30 minutos enquanto está aberto, avisando no dia e {s.notifyDaysBefore} dia(s) antes. <b>Navegadores não garantem notificações com o app totalmente fechado</b> — por isso os avisos também aparecem na tela inicial. Abra o app uma vez por dia para não perder nada. Para alarmes garantidos, use também a agenda do celular ou, no futuro, a versão APK.</p>
+            <p class="muted small">Permissão: {perm === 'granted' ? 'concedida' : perm === 'denied' ? (native ? 'negada (mude nas configurações do Android)' : 'negada (mude nas configurações do navegador)') : perm === 'unsupported' ? 'não suportada neste navegador' : 'ainda não pedida'}.</p>
+            <p class="note"><Icon name="info" size={16} /> {native
+              ? <>No aplicativo Android os lembretes são agendados no sistema, por volta das 9h, e tocam com o app fechado: no dia, {s.notifyDaysBefore} dia(s) antes e no dia seguinte se a conta continuar pendente. Abra o app depois de pagar ou alterar uma conta para atualizar os alarmes. Os avisos também ficam na tela inicial.</>
+              : <>O app verifica as contas quando é aberto e a cada 30 minutos enquanto está aberto, avisando no dia e {s.notifyDaysBefore} dia(s) antes. <b>Navegadores não garantem notificações com o app totalmente fechado</b> — por isso os avisos também aparecem na tela inicial. O APK (veja a instalação) agenda esses lembretes mesmo com o app fechado.</>}</p>
             <button class="btn ghost block" type="button" onClick={() => { act((x) => ({ ...x, notified: [] })); void checkReminders().then((n) => toast(n ? `${n} lembrete(s) enviados` : 'Nenhum lembrete pendente agora')); }}>Testar lembretes agora</button>
           </div>
         </Card>

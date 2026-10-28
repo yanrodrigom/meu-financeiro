@@ -2,6 +2,20 @@
 const DB = 'meu-financeiro';
 const STORE = 'kv';
 const KEY = 'app-data';
+const MIRROR = 'mf-mirror';
+
+function writeMirror<T>(value: T): void {
+  try { localStorage.setItem(MIRROR, JSON.stringify(value)); } catch { /* quota ou modo privado */ }
+}
+
+function readMirror<T>(): T | undefined {
+  try {
+    const raw = localStorage.getItem(MIRROR);
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as T;
+    return parsed && typeof parsed === 'object' ? parsed : undefined;
+  } catch { return undefined; }
+}
 
 function open(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -13,9 +27,22 @@ function open(): Promise<IDBDatabase> {
 }
 
 let dbp: Promise<IDBDatabase> | null = null;
-const db = () => (dbp ??= open());
+let openDb: IDBDatabase | null = null;
+const db = () => (dbp ??= open().then((d) => { openDb = d; return d; }));
+
+/** Grava na hora. localStorage é síncrono: um reload no mesmo instante ainda vê o dado. */
+export function persistNow<T>(value: T): void {
+  writeMirror(value);
+  if (!openDb) return;
+  try {
+    const tx = openDb.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).put(value, KEY);
+  } catch { /* saveData ainda tenta de novo */ }
+}
 
 export async function loadData<T>(): Promise<T | undefined> {
+  const mirrored = readMirror<T>();
+  if (mirrored) return mirrored;
   const d = await db();
   return new Promise((resolve, reject) => {
     const tx = d.transaction(STORE, 'readonly');
@@ -26,6 +53,7 @@ export async function loadData<T>(): Promise<T | undefined> {
 }
 
 export async function saveData<T>(value: T): Promise<void> {
+  writeMirror(value);
   const d = await db();
   return new Promise((resolve, reject) => {
     const tx = d.transaction(STORE, 'readwrite');
@@ -36,6 +64,7 @@ export async function saveData<T>(value: T): Promise<void> {
 }
 
 export async function clearData(): Promise<void> {
+  try { localStorage.removeItem(MIRROR); } catch { /* sem localStorage */ }
   const d = await db();
   return new Promise((resolve, reject) => {
     const tx = d.transaction(STORE, 'readwrite');

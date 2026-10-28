@@ -9,6 +9,8 @@ import { money } from '../format';
 import { Icon } from '../icons';
 import { Card, confirmDialog, Empty, Field, MonthBar, PageHeader, Progress, Sheet, toast } from '../components/kit';
 import { ItemForm } from '../components/forms';
+import { ShoppingImportSheet } from '../components/ShoppingImport';
+import { applyShoppingImport, type PlannedImport } from '../../domain/shopping-import';
 import { useMonth } from '../state';
 
 export function Shopping() {
@@ -22,6 +24,7 @@ export function Shopping() {
   const [dup, setDup] = useState(false);
   const [dupMonth, setDupMonth] = useState(addMonth(month, 1));
   const [rename, setRename] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   useEffect(() => { setSel(null); }, [month]);
   const va = calc.vaMonth(d, month);
   const prev = d.lists.filter((l) => l.month === addMonth(month, -1));
@@ -52,6 +55,23 @@ export function Shopping() {
   const delList = async () => {
     if (!list) return;
     if (await confirmDialog({ title: `Excluir a lista "${list.name}"?`, text: `${list.items.length} item(ns) serão apagados e o gasto do VA desta lista deixa de contar.`, ok: 'Excluir lista', danger: true })) { act((x) => ops.deleteList(x, list.id)); setSel(null); toast('Lista excluída'); }
+  };
+  const confirmImport = (rows: PlannedImport[]) => {
+    const listId = list?.id ?? (() => {
+      const err = act((x) => ops.addList(x, month));
+      if (err) { toast(err, 'err'); return null; }
+      const created = [...getData().lists].reverse().find((l) => l.month === month)?.id ?? null;
+      if (!created) { toast('Não foi possível criar a lista', 'err'); return null; }
+      setSel(created);
+      return created;
+    })();
+    if (!listId) return;
+    const err = act((x) => applyShoppingImport(x, listId, rows));
+    if (err) return toast(err, 'err');
+    const added = rows.filter((r) => r.action === 'add').length;
+    const summed = rows.filter((r) => r.action === 'sum').length;
+    toast([added ? `${added} adicionado(s)` : '', summed ? `${summed} somado(s)` : ''].filter(Boolean).join(' · ') || 'Lista atualizada');
+    setImportOpen(false);
   };
   const doDup = (e: Event) => {
     e.preventDefault();
@@ -91,6 +111,7 @@ export function Shopping() {
         <Card>
           <Empty icon="cart" title="Nenhuma lista neste mês" text="Monte sua lista do mercado e acompanhe quanto do VA vai usar antes de chegar ao caixa."
             action={<div class="stack-sm"><button class="btn primary" type="button" onClick={createList}>Criar lista de {monthLabel(month)}</button>
+              <button class="btn ghost" type="button" onClick={() => setImportOpen(true)}>Importar lista</button>
               {prev.length > 0 && <button class="btn ghost" type="button" onClick={() => { act((x) => ops.duplicateList(x, prev[0].id, month)); toast('Lista do mês anterior copiada'); }}>Copiar lista do mês anterior</button>}</div>} />
         </Card>
       ) : (
@@ -115,6 +136,7 @@ export function Shopping() {
                 <button class="icon-btn filled" type="submit" aria-label="Adicionar"><Icon name="plus" /></button>
                 <button class="btn ghost small" type="button" onClick={() => setItemForm({ open: true })}>Detalhado</button>
               </form>
+              <button class="link" type="button" onClick={() => setImportOpen(true)}>Importar lista</button>
               {freq.length > 0 && (
                 <div class="freq"><p class="muted small">Itens frequentes</p><div class="chips">{freq.map((f) => <button type="button" class="chip" onClick={() => addFrequent(f.name)}>+ {f.name}</button>)}</div></div>
               )}
@@ -141,6 +163,7 @@ export function Shopping() {
       )}
 
       {list && <ItemForm open={itemForm.open} listId={list.id} initial={itemForm.item} onClose={() => setItemForm({ open: false })} />}
+      <ShoppingImportSheet open={importOpen} existing={list?.items ?? []} onClose={() => setImportOpen(false)} onApply={confirmImport} />
       <Sheet open={dup} title="Duplicar lista" onClose={() => setDup(false)}>
         <form class="stack" onSubmit={doDup}>
           <Field label="Para o mês"><input type="month" name="mes-destino" value={dupMonth} onInput={(e) => setDupMonth((e.target as HTMLInputElement).value)} /></Field>

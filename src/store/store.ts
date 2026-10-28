@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import type { AppData } from '../domain/types';
 import { emptyData, runMaintenance, ValidationError } from '../domain/ops';
-import { clearData, loadData, saveData } from './db';
+import { clearData, loadData, persistNow, saveData } from './db';
 import { setPrivacy } from '../ui/format';
 
 type Listener = () => void;
@@ -40,6 +40,7 @@ export async function initStore() {
 let chain: Promise<void> = Promise.resolve();
 function scheduleSave() {
   const snapshot = state;
+  persistNow(snapshot);
   chain = chain.then(() => saveData(snapshot)).catch((e) => console.error('Falha ao salvar', e));
 }
 
@@ -78,6 +79,11 @@ export async function wipeAll() {
   emit();
 }
 
+export function subscribe(l: Listener): () => void {
+  listeners.add(l);
+  return () => { listeners.delete(l); };
+}
+
 export function useData(): AppData {
   const [, set] = useState(0);
   useEffect(() => {
@@ -91,6 +97,6 @@ export function useData(): AppData {
 }
 
 // Nunca grava antes de carregar: evitaria sobrescrever os dados salvos com um estado vazio.
-const saveIfLoaded = () => { if (loaded) void saveData(state); };
+const saveIfLoaded = () => { if (loaded) { persistNow(state); void saveData(state); } };
 window.addEventListener('pagehide', saveIfLoaded);
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') saveIfLoaded(); });
