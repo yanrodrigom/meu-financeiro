@@ -97,6 +97,37 @@ test.describe('Compras (VA)', () => {
     await expect(page.getByRole('listitem').filter({ hasText: 'Arroz 5kg' })).toHaveCount(0);
     await expect(page.getByRole('listitem').filter({ hasText: 'Café 500g' })).toHaveCount(1);
   });
+
+  test('importa txt com seções na lista do mês sem duplicar e sem gastar VA', async ({ page }) => {
+    await onboard(page);
+    await tab(page, 'Compras');
+    const sample = [
+      '--- COMIDA E MARMITAS ---',
+      '[ ] Peito de Frango (4 kg) - R$ 72,00',
+      '[ ] Carne Moída (1,5 kg) - R$ 45,00',
+      '--- FRUTAS E LEGUMES ---',
+      '[ ] Maçã (3 kg) - R$ 30,00',
+      '--- FIM DE SEMANA ---',
+      '[ ] Refrigerante em Lata (2 fardos c/ 12) - R$ 70,00',
+      '--- HIGIENE E LIMPEZA ---',
+      '[ ] Papel higiênico, Shampoo... - R$ 78,00',
+    ].join('\n');
+    await page.getByRole('button', { name: 'Importar lista' }).click();
+    await sheet(page).locator('textarea[name=lista-texto]').fill(sample);
+    await expect(sheet(page).getByRole('button', { name: 'Adicionar 5 item(ns)' })).toBeEnabled();
+    await sheet(page).getByRole('button', { name: 'Adicionar 5 item(ns)' }).click();
+    await expect(page.getByText('Peito de Frango')).toBeVisible();
+    await expect(page.getByText('1,5 kg')).toBeVisible();
+    await expect(page.getByText('fardos c/ 12')).toBeVisible();
+    await expect(page.getByText('Papel higiênico, Shampoo...')).toBeVisible();
+    await expect(page.getByText('COMIDA E MARMITAS').first()).toBeVisible();
+    await expect(page.getByText(/previsto R\$ 295,00/)).toBeVisible();
+    await expect(page.getByTestId('va-gasto')).toHaveText('R$ 0,00');
+    await page.getByRole('button', { name: 'Importar lista' }).click();
+    await sheet(page).locator('input[type=file]').setInputFiles({ name: 'lista.txt', mimeType: 'text/plain', buffer: Buffer.from(sample, 'utf-8') });
+    await expect(sheet(page).getByText('0 novo(s) · 5 já na lista')).toBeVisible();
+    await expect(sheet(page).getByRole('button', { name: 'Nada novo para adicionar' })).toBeDisabled();
+  });
 });
 
 test.describe('Casa', () => {

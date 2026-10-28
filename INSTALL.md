@@ -16,7 +16,7 @@ Dica: na primeira abertura, faça a configuração (salário, VA, saldo, contas 
 - Dentro do app, contas atrasadas, que vencem hoje e as próximas aparecem sempre no **Início** e em **Contas**.
 - Em **Perfil → Lembretes** você pode ativar as notificações do sistema. O app avisa no dia do vencimento, X dias antes (você escolhe) e quando a conta atrasou.
 - **No navegador (PWA):** as notificações só são verificadas **quando o app está aberto ou foi aberto recentemente**. Com o app totalmente fechado, o Android não garante o aviso. Abra o app uma vez por dia para receber os avisos.
-- **No APK (seção 5):** os lembretes são agendados no Android e tocam por volta das **9h** mesmo com o app fechado — no dia do vencimento, X dias antes e no dia seguinte se a conta continuar pendente. Abra o app depois de pagar ou editar uma conta para atualizar os alarmes. Os dados do PWA **não** passam sozinhos para o APK: use o backup JSON.
+- **No APK (seção 6):** os lembretes são agendados no Android e tocam por volta das **9h** mesmo com o app fechado — no dia do vencimento, X dias antes e no dia seguinte se a conta continuar pendente. Abra o app depois de pagar ou editar uma conta para atualizar os alarmes. Os dados do PWA **não** passam sozinhos para o APK: use o backup JSON.
 
 ## 3. Backup (muito importante)
 
@@ -26,7 +26,21 @@ Dica: na primeira abertura, faça a configuração (salário, VA, saldo, contas 
 - Para restaurar (ex.: celular novo): abra o app, toque em **"Já usava o app? Restaurar um backup"** na tela de boas-vindas (ou em Backup → Escolher arquivo de backup). O arquivo é validado e o app pede confirmação antes de substituir os dados.
 - Também dá para exportar **CSV** (abre no Excel/Google Planilhas, separador `;`) em **Mais → Relatórios**, e imprimir/salvar em PDF um resumo do mês.
 
-## 4. Rodar localmente (computador)
+## 4. Importar lista de compras
+
+Em **Compras → Importar lista**, cole um texto ou escolha um arquivo `.txt` (também aceita CSV e JSON).
+
+```text
+--- COMIDA E MARMITAS ---
+[ ] Peito de Frango (4 kg) - R$ 72,00
+[ ] Carne Moída (1,5 kg) - R$ 45,00
+--- HIGIENE E LIMPEZA ---
+[ ] Papel higiênico, Shampoo... - R$ 78,00
+```
+
+A seção vira a categoria. A quantidade e a unidade ficam entre parênteses, quando existem. O valor depois de `R$` é o **total da linha** (4 kg a R$ 72 entram como R$ 18 o quilo). Os itens entram **pendentes** na lista do mês que está aberto — não gastam o VA até serem marcados como comprados. Se o nome já está na lista, ele não é copiado de novo. Dá para marcar "somar a quantidade" só para itens pendentes com a mesma unidade.
+
+## 5. Rodar localmente (computador)
 
 Requisitos: Node.js 20 ou superior.
 
@@ -43,7 +57,7 @@ A pasta `dist/` é um site estático: pode ser publicada em qualquer hospedagem 
 
 **Publicar no GitHub Pages:** o repositório já tem `.github/workflows/pages.yml`. Em *Settings → Pages*, escolha **Source: GitHub Actions**. Cada push na branch `main` testa, gera o build e publica.
 
-## 5. APK Android (Capacitor)
+## 6. APK Android (Capacitor)
 
 O mesmo app também é empacotado como aplicativo Android, sem Play Store e sem servidor. O arquivo pronto para instalar é:
 
