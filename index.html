@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f4f7f6" />
+    <meta name="description" content="Controle financeiro pessoal: salário, vale-alimentação, contas, compras e reserva de emergência. Funciona offline." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Meu Financeiro" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icons/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+    <title>Meu Financeiro</title>
+    <script>try{var s=JSON.parse(localStorage.getItem('mf-theme')||'null');if(s)document.documentElement.dataset.theme=s}catch(e){}</script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <noscript>O Meu Financeiro precisa de JavaScript ativado.</noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
