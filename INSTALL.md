@@ -15,7 +15,8 @@ Dica: na primeira abertura, faça a configuração (salário, VA, saldo, contas 
 
 - Dentro do app, contas atrasadas, que vencem hoje e as próximas aparecem sempre no **Início** e em **Contas**.
 - Em **Perfil → Lembretes** você pode ativar as notificações do sistema. O app avisa no dia do vencimento, X dias antes (você escolhe) e quando a conta atrasou.
-- **Importante:** como é um app web sem servidor, as notificações só são verificadas **quando o app está aberto ou foi aberto recentemente** (o navegador pode suspender o app em segundo plano). Com o app totalmente fechado, o Android não garante o aviso. Para lembretes 100% confiáveis seria preciso empacotar como app nativo (ver seção 5). Abra o app uma vez por dia para receber os avisos.
+- **No navegador (PWA):** as notificações só são verificadas **quando o app está aberto ou foi aberto recentemente**. Com o app totalmente fechado, o Android não garante o aviso. Abra o app uma vez por dia para receber os avisos.
+- **No APK (seção 5):** os lembretes são agendados no Android e tocam por volta das **9h** mesmo com o app fechado — no dia do vencimento, X dias antes e no dia seguinte se a conta continuar pendente. Abra o app depois de pagar ou editar uma conta para atualizar os alarmes. Os dados do PWA **não** passam sozinhos para o APK: use o backup JSON.
 
 ## 3. Backup (muito importante)
 
@@ -42,15 +43,51 @@ A pasta `dist/` é um site estático: pode ser publicada em qualquer hospedagem 
 
 **Publicar no GitHub Pages:** o repositório já tem `.github/workflows/pages.yml`. Em *Settings → Pages*, escolha **Source: GitHub Actions**. Cada push na branch `main` testa, gera o build e publica.
 
-## 5. Futuro: APK com Capacitor
+## 5. APK Android (Capacitor)
 
-O app foi feito com caminhos relativos e sem dependência de servidor, então pode virar APK sem reescrever:
+O mesmo app também é empacotado como aplicativo Android, sem Play Store e sem servidor. O arquivo pronto para instalar é:
+
+`artifacts/MeuFinanceiro-debug.apk`
+
+É um **APK de depuração** (assinado com a chave de debug do Android). Não precisa de conta Google nem de chave de publicação.
+
+### Instalar no celular
+
+1. Copie `MeuFinanceiro-debug.apk` para o Android (e-mail, Drive, cabo USB ou download do repositório).
+2. Abra o arquivo. Se o sistema bloquear, permita a instalação:
+   - Android 8 ou mais novo: ao abrir o APK, toque em **Configurações** e ative **Permitir desta fonte** (ou **Instalar apps desconhecidos**) para o app que está abrindo o arquivo (Arquivos, Chrome, Drive…). Volte e confirme **Instalar**.
+   - Android mais antigo: **Configurações → Segurança → Fontes desconhecidas**.
+3. Abra **Meu Financeiro**. O ícone fica na gaveta de apps como um aplicativo normal. Funciona sem internet.
+
+Na primeira vez em que ativar os lembretes, o Android pede permissão de notificação. Aceite para os avisos tocarem com o app fechado.
+
+### Os dados do PWA não migram sozinhos
+
+O PWA (Chrome) e o APK são instalações diferentes. O IndexedDB de um **não** aparece no outro. Se você já usa o app no navegador:
+
+1. No PWA: **Mais → Backup e restauração → Exportar backup (JSON)**.
+2. Guarde o arquivo.
+3. No APK: na tela de boas-vindas, **Já usava o app? Restaurar um backup** (ou **Mais → Backup e restauração**).
+4. Confirme a substituição.
+
+Desinstalar o APK ou limpar os dados do app apaga o que está nele. Continue exportando o JSON de vez em quando.
+
+### Gerar o APK de novo
+
+Requisitos: Node.js 20+, JDK 21, Android SDK com a plataforma 36 (`ANDROID_HOME` apontando para o SDK).
 
 ```bash
-npm install @capacitor/core @capacitor/cli @capacitor/android
-npx cap init "Meu Financeiro" br.yan.meufinanceiro --web-dir dist
-npm run build && npx cap add android && npx cap sync
-npx cap open android   # abre no Android Studio para gerar o APK
+npm install
+npm run android:debug
 ```
 
-Com Capacitor dá para trocar os lembretes por **notificações locais agendadas** (`@capacitor/local-notifications`), que funcionam com o app fechado. Atenção: os dados do PWA instalado pelo Chrome **não** passam automaticamente para o APK. Exporte um backup JSON no PWA e importe no APK.
+O comando gera o site em `dist/`, sincroniza o projeto em `android/`, roda `assembleDebug` e copia o resultado para `artifacts/MeuFinanceiro-debug.apk`. O arquivo intermediário do Gradle fica em `android/app/build/outputs/apk/debug/app-debug.apk`.
+
+Na primeira vez, se a pasta `android/` não existir:
+
+```bash
+npx cap add android
+npm run android:debug
+```
+
+App id: `br.yan.meufinanceiro`. Nome: **Meu Financeiro**. A WebView carrega `dist/` (`webDir`). Não há backend nem chave de release.

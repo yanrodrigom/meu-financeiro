@@ -78,6 +78,11 @@ export async function wipeAll() {
   emit();
 }
 
+export function subscribe(l: Listener): () => void {
+  listeners.add(l);
+  return () => { listeners.delete(l); };
+}
+
 export function useData(): AppData {
   const [, set] = useState(0);
   useEffect(() => {
